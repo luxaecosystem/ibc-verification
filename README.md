@@ -1,30 +1,29 @@
-# IBC Verification: luxa-1 <-> Osmosis, Cosmos Hub, Celestia, Noble
+# IBC Verification Proofs: luxa-1 Mainnet Interoperability
 
-**Chain**: `luxa-1` (Cosmos SDK v0.50, ibc-go transfer)  
-**All times**: UTC  
-*Everything below can be re-checked with the verification commands at the end of this document.*
+**Network:** `luxa-1` (Cosmos SDK v0.50, CometBFT, `ibc-go` transfer module)  
+**Counterparties:** Osmosis (`osmosis-1`), Cosmos Hub (`cosmoshub-4`), Celestia (`celestia`), Noble (`noble-1`)  
+**Timestamp Standard:** UTC  
 
 ---
 
 ## 1. Channels Topology
 
-| `luxa-1` Side | Counterparty Chain | Counterparty Channel | State |
-| :--- | :--- | :--- | :--- |
-| `channel-1` | `osmosis-1` | `channel-111100` | `STATE_OPEN` |
-| `channel-2` | `cosmoshub-4` | `channel-1941` | `STATE_OPEN` |
-| `channel-3` | `celestia` | `channel-709` | `STATE_OPEN` |
-| `channel-4` | `noble-1` | `channel-640` | `STATE_OPEN` |
+| `luxa-1` Channel | Counterparty Chain | Counterparty Channel | Port | Client Type | State |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `channel-1` | `osmosis-1` | `channel-111100` | `transfer` | `07-tendermint` | `STATE_OPEN` |
+| `channel-2` | `cosmoshub-4` | `channel-1941` | `transfer` | `07-tendermint` | `STATE_OPEN` |
+| `channel-3` | `celestia` | `channel-709` | `transfer` | `07-tendermint` | `STATE_OPEN` |
+| `channel-4` | `noble-1` | `channel-640` | `transfer` | `07-tendermint` | `STATE_OPEN` |
 
-> [!NOTE]
-> Both ends were verified: the counterparty chain reports the matching channel, connection, and an active `07-tendermint` client tracking `luxa-1` (Active, not frozen).  
-> *(An additional `channel-0` connects to `osmo-test-5` and is reserved for testing only).*
+> **Topology Note:** Both ends of each channel have been independently queried and verified. Each counterparty chain hosts an active, synchronized `07-tendermint` light client tracking `luxa-1` headers with zero frozen clients. *(Channel `channel-0` connects to `osmo-test-5` and is strictly dedicated to testnet validation).*
 
 ---
 
-## 2. Inbound: Tokens Received on `luxa-1`
-*Successful acknowledgement `{"result":"AQ=="}`*
+## 2. Inbound Transactions (Tokens Received on luxa-1)
 
-| From | Token | Amount (raw) | Packet Seq | Tx on `luxa-1` | `luxa-1` Block | Time (UTC) | IBC Denom on `luxa-1` |
+All incoming IBC transfers completed successfully with canonical write-acknowledgement: `{"result":"AQ=="}`.
+
+| Origin Chain | Asset | Raw Amount | Packet Seq | `luxa-1` Receive Tx Hash | Block Height | Timestamp (UTC) | IBC Denom Hash on `luxa-1` |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Osmosis** | OSMO | `10000 uosmo` | 2 | `55CBF48E767AA76E55D433B6DA098734EC11C5F976B391A0130BD3EEB38D3E3E` | 38253 | 2026-11-01 03:02:56 | `ibc/0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B` |
 | **Cosmos Hub** | ATOM | `1000 uatom` | 3 | `16ABE6B4200F98B747AA9B4EAF07D6D7531B4FD98CC126A0D1620130A9ED12F0` | 41235 | 2026-11-01 21:17:10 | `ibc/9117A26BA81E29FA4F78F57DC2BD90CD3D26848101BA880445F119B22A1E254E` |
@@ -33,56 +32,59 @@
 
 ---
 
-## 3. Departure Transactions on Source Chains & Delivery Times
+## 3. Departure Transactions & Relay Latency
 
-| From | Tx on Source Chain | Sent (UTC) | Received on `luxa-1` (UTC) | Delivery Time |
+| Origin Chain | Origin Tx Hash | Origin Height | Departure (UTC) | Finalized on `luxa-1` (UTC) | Latency |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Osmosis** | `2B9170566E7622155050989877FBED2B4F134A08F2514C7D5CFB33D1EF232FCB` | 73,728,992 | 2026-11-01 03:02:01 | 2026-11-01 03:02:56 | ~55 s |
+| **Cosmos Hub** | `C438DF6E15F81FBD0BDFE7D3F8C37A23F3A85E2B206869774A25C2F31772C1C9` | 33,683,242 | 2026-11-01 21:13:58 | 2026-11-01 21:17:10 | ~3 min 12 s |
+| **Celestia** | `35D440289E05323C7076377B86861B6CF6BD3B5EF184F743125D73368AAB3D19` | — | 2026-11-01 21:36:24 | 2026-11-01 21:38:46 | ~2 min 22 s |
+| **Noble** | `A230A41398DBE2C829ECAFDC79BDCA7266785363D8F7978A3D64003C9B9DD5DC` | — | 2026-11-01 22:19:30 | 2026-11-01 22:20:49 | ~1 min 20 s |
+
+---
+
+## 4. Token Unwinding Proof (Native LUXA Return)
+
+* **Transaction Hash:** `C56A78A6AE2E573D2F7B581182A9C08F815AEBFD5CE45517051BF0B53490D783`
+* **Network & Height:** `luxa-1`, Block `28619`
+* **Timestamp:** `2026-10-26 22:01:23 UTC`
+* **Unwound Asset:** `1 LUXA` (`1000000` base units)
+* **Path Traversed:** Sent back from Noble via denom path `transfer/channel-640/uluxa`.
+* **Verification Result:** The packet prefix matched the originating escrow channel (`channel-4`), successfully unlocking the escrowed base asset and crediting native `uluxa` with an acknowledged state.
+
+---
+
+## 5. Outbound Transactions (LUXA Sent from luxa-1)
+
+| Destination Chain | Packet Sequence | `luxa-1` Outbound Tx Hash | `luxa-1` Height | Status |
 | :--- | :--- | :--- | :--- | :--- |
-| **Osmosis** | `2B9170566E7622155050989877FBED2B4F134A08F2514C7D5CFB33D1EF232FCB`<br>*(osmosis-1, height 73,728,992)* | 2026-11-01 03:02:01 | 2026-11-01 03:02:56 | ~55 s |
-| **Cosmos Hub** | `C438DF6E15F81FBD0BDFE7D3F8C37A23F3A85E2B206869774A25C2F31772C1C9`<br>*(cosmoshub-4, height 33,683,242)* | 2026-11-01 21:13:58 | 2026-11-01 21:17:10 | ~3 min 12 s |
-| **Celestia** | `35D440289E05323C7076377B86861B6CF6BD3B5EF184F743125D73368AAB3D19` | 2026-11-01 21:36:24 | 2026-11-01 21:38:46 | ~2 min 22 s |
-| **Noble** | `A230A41398DBE2C829ECAFDC79BDCA7266785363D8F7978A3D64003C9B9DD5DC` | 2026-11-01 22:19:30 | 2026-11-01 22:20:49 | ~1 min 20 s |
+| **Osmosis** | — | `592ADCA7E96C9844F5AA49B7CA47C20D6ED45A21F7483068C1BE3651AF77DBA9` | 21506 | Acknowledged |
+| **Cosmos Hub** | 1 | `54526D54B111E96E0E794E3D56E9AA7A2338EB32CE0B8CAE7639A255F2B28258` | 21930 | Acknowledged |
+| **Cosmos Hub** | 2 | `380A8ADB596272990949A337E096E0E11C314A567EC7001EEEC0A7A14CAFC619` | 21967 | Acknowledged |
+| **Cosmos Hub** | 3 | `959CE8FF88257DFC8C7DED29D38331052C7002DE34090F19216E5A9D3FAD6F46` | 21972 | Acknowledged |
+| **Celestia** | — | `F43B1F0FC1FE1FAA5A167D17F064926A02C9526FBBBDED67F925F068CB6E086E` | 24101 | Acknowledged |
+| **Noble** | 1 | `038849F2D6D26167F46BDACCEE67F77D652D64AC2312E30BADBEE39F421EA8BC` | 28519 | Acknowledged |
+| **Noble** | 2 | `48791E547C0F9FEC726D8F6BC2144AF386B312B9783B63A7F8674A44519E2553` | 28632 | Acknowledged |
+
+> **Queue Health:** Zero packet commitments remain open on channels 1 through 4. All outbound sequence packets have been picked up, relayed, and acknowledged by target chains.
 
 ---
 
-## 4. Native LUXA Returning to `luxa-1` (Unwinding Proof)
+## 6. Deterministic On-Chain Verification Commands
 
-* On **2026-10-26 22:01:23 UTC** (`luxa-1` block **28619**, tx `C56A78A6AE2E573D2F7B581182A9C08F815AEBFD5CE45517051BF0B53490D783`), **1 LUXA** (`1000000`, denom `transfer/channel-640/uluxa`) returned from Noble.
-* The prefix matches the originating channel, so the IBC packet was successfully unwound into native `uluxa` with positive acknowledgement.
-
----
-
-## 5. Outbound: LUXA Sent from `luxa-1`
-
-| Destination Chain | Tx on `luxa-1` | `luxa-1` Block |
-| :--- | :--- | :--- |
-| **Osmosis** | `592ADCA7E96C9844F5AA49B7CA47C20D6ED45A21F7483068C1BE3651AF77DBA9` | 21506 |
-| **Cosmos Hub** (seq 1) | `54526D54B111E96E0E794E3D56E9AA7A2338EB32CE0B8CAE7639A255F2B28258` | 21930 |
-| **Cosmos Hub** (seq 2) | `380A8ADB596272990949A337E096E0E11C314A567EC7001EEEC0A7A14CAFC619` | 21967 |
-| **Cosmos Hub** (seq 3) | `959CE8FF88257DFC8C7DED29D38331052C7002DE34090F19216E5A9D3FAD6F46` | 21972 |
-| **Celestia** | `F43B1F0FC1FE1FAA5A167D17F064926A02C9526FBBBDED67F925F068CB6E086E` | 24101 |
-| **Noble** (seq 1) | `038849F2D6D26167F46BDACCEE67F77D652D64AC2312E30BADBEE39F421EA8BC` | 28519 |
-| **Noble** (seq 2) | `48791E547C0F9FEC726D8F6BC2144AF386B312B9783B63A7F8674A44519E2553` | 28632 |
-
-> [!NOTE]
-> After the tests above, no packet commitment is left open on channels 1 to 4 (all outbound packets were acknowledged).
-
----
-
-## 6. How to Re-Check On-Chain
+Run the following commands using any configured `luxad` binary pointing to an active RPC endpoint:
 
 ```bash
-# Query channels and clients
-luxad q ibc channel channels -o json | jq -r '.channels[]|"\(.channel_id) <-> \(.counterparty.channel_id) \(.state)"'
+# 1. Query active IBC channels and counterparty mapping
+luxad q ibc channel channels -o json | jq -r '.channels[] | "\(.channel_id) <-> \(.counterparty.channel_id) [\(.state)]"'
+
+# 2. Inspect IBC denom traces registered on luxa-1
 luxad q ibc-transfer denom-traces -o json | jq -c '.denom_traces[]'
 
-# Query a transaction and its acknowledgement
+# 3. Query specific transaction receipts and write-acknowledgements
 luxad q tx <TX_HASH> -o json | jq '.events[] | select(.type=="recv_packet" or .type=="write_acknowledgement")'
 
-# Calculate expected IBC denom = sha256 of "transfer/<luxa-1 channel>/<base denom>" (uppercase hex)
+# 4. Verify IBC denom hash calculation (SHA-256 uppercase hex of path/base_denom)
+# Example for Osmosis uosmo on channel-1:
 printf %s "transfer/channel-1/uosmo" | sha256sum | cut -d' ' -f1 | tr a-f A-F
-```
-
----
-
-> [!IMPORTANT]
-> *Test amounts are deliberately tiny. This document serves as verifiable cryptographic proof of IBC cross-chain connectivity, packet sequencing, and token unwinding across production mainnet relays.*
+# Expected Result: 0471F1C4E7AFD3F07702BEF6DC365268D64570F7C1FDC98EA6098DD6DE59817B
